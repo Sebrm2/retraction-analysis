@@ -1,0 +1,41 @@
+# config.yaml
+# -----------
+# Human-readable reference copy of the key settings. The pipeline itself reads
+# from src/config.py (edit that file to change behaviour); this file documents
+# the same values in one place for readers of the repository.
+
+paths:
+  data_dir: data/
+  figures_dir: figures/
+  tables_dir: tables/
+  retraction_watch_csv: data/retraction_watch.csv
+  scimago_country_csv: data/scimagojr-country.csv        # optional
+  scimago_subject_csv: data/scimago_subject_totals.csv   # optional
+
+scope:
+  retraction_nature: Retraction
+  subjects:
+    - "(BLS) Neuroscience"
+    - "(HSC) Biostatistics/Epidemiology"
+    - "(HSC) Radiology/Imaging"
+    - "(PHY) Nanotechnology"
+
+citation_enrichment:
+  contact_email: your-email@example.com   # required by OpenAlex/NCBI polite pools
+  sample_size: 10000                       # cap on papers sent to each API
+
+parameters:
+  major_nation_min_docs: 100000    # min publications to count as a major research nation
+  min_papers_per_country: 50       # min papers for a country in the temporal-lag analysis
+  ttr_min_years: 0.0
+  ttr_max_years: 30.0
+  bootstrap_iterations: 5000
+  random_seed: 42
+
+  # Post-retraction contamination guardrails
+  contamination_min_pre_years: 2.0     # paper must be published >= 2 yr before retraction
+  contamination_max_retract_year: 2023 # exclude retractions after this year
+  contamination_current_year: 2026     # used to size the post-retraction window
+
+figures:
+  dpi: 300
