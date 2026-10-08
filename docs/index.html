@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Biomedical Retraction Record</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="plotly.min.js"></script>
+<style>
+  :root{
+    --ink:#1a1a17; --ink-soft:#4a4842; --ink-faint:#84817a;
+    --paper:#f3efe6; --paper-2:#e9e4d7; --card:#fbf9f3;
+    --line:#d6d0c1; --line-strong:#b9b2a0;
+    --accent:#8a2b2b; --accent-soft:#b5533f; --teal:#2a6b62; --gold:#a97b26; --blue:#3a5a78;
+    --radius:3px;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --sans:'Inter',system-ui,sans-serif;
+    --display:'Fraunces',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  ::selection{background:var(--accent);color:#fff}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+  header.mast{border-bottom:2px solid var(--ink);padding:34px 0 22px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent);font-weight:700;display:flex;align-items:center;gap:12px}
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--line-strong)}
+  h1.title{font-family:var(--display);font-weight:600;font-size:clamp(30px,5vw,52px);line-height:1.03;letter-spacing:-.02em;margin:14px 0 12px;max-width:16ch}
+  h1.title em{font-style:italic;color:var(--accent)}
+  .standfirst{font-size:17px;color:var(--ink-soft);max-width:64ch;line-height:1.5}
+
+  /* control bar */
+  .controls{position:sticky;top:0;z-index:30;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin:22px 0 0;padding:14px 18px;display:flex;gap:16px 20px;flex-wrap:wrap;align-items:flex-end;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+  .ctrl label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px;font-weight:700}
+  .ctrl select{font-family:var(--sans);font-size:13.5px;color:var(--ink);background:var(--paper);border:1px solid var(--line-strong);border-radius:var(--radius);padding:7px 9px}
+  .yrrow{display:flex;align-items:center;gap:6px}
+  .yrrow select{min-width:78px}
+  .yrrow span{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  .btn{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:700;background:var(--ink);color:var(--paper);border:none;border-radius:var(--radius);padding:9px 15px;cursor:pointer;transition:background .15s;align-self:flex-end}
+  .btn:hover{background:var(--accent)}
+  .status{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-left:auto;align-self:center;text-align:right;max-width:30ch}
+  .status b{color:var(--accent)}
+
+  /* tabs */
+  .tabs{display:flex;gap:2px;flex-wrap:wrap;margin:22px 0 0;border-bottom:2px solid var(--ink)}
+  .tab{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink-faint);background:transparent;border:1px solid transparent;border-bottom:none;padding:11px 18px;cursor:pointer;border-radius:var(--radius) var(--radius) 0 0;transition:color .15s,background .15s}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--accent);background:var(--card);border-color:var(--line);border-bottom:2px solid var(--card);margin-bottom:-2px}
+
+  main{padding:26px 0 70px;display:none}
+  main.on{display:block}
+  .tabpanel{display:none}
+  .tabpanel.on{display:block}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+  @media(max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+  .kpi .val{font-family:var(--display);font-weight:600;font-size:34px;line-height:1;letter-spacing:-.02em}
+  .kpi .lab{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-top:8px;font-weight:700}
+  .kpi .sub{font-size:12px;color:var(--ink-soft);margin-top:5px}
+
+  .grid{display:grid;gap:20px}
+  .grid.two{grid-template-columns:1fr 1fr}
+  @media(max-width:820px){.grid.two{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px}
+  .panel .ph{display:flex;align-items:baseline;gap:12px;margin-bottom:2px;flex-wrap:wrap}
+  .panel h3{font-family:var(--sans);font-weight:600;font-size:15px}
+  .panel .cap{font-size:12.5px;color:var(--ink-faint);margin-bottom:14px;line-height:1.4}
+  .figextra{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .figextra span{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .figextra select{font-family:var(--sans);font-size:12px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:3px 6px}
+  .plot{width:100%;height:330px}
+  .plot.tall{height:450px}
+  .plot.map{height:470px}
+
+  .maptable{margin-top:14px;max-height:230px;overflow-y:auto;border-top:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{position:sticky;top:0;background:var(--card);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  td.num{font-family:var(--mono);text-align:right}
+  tbody tr:hover{background:var(--paper-2)}
+
+  .citebox-nums{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
+  @media(max-width:600px){.citebox-nums{grid-template-columns:1fr}}
+  .cbn{padding:16px 20px;background:var(--paper)}
+  .cbn.accent{background:#f4e8e4;border-left:1px solid var(--line)}
+  @media(max-width:600px){.cbn.accent{border-left:none;border-top:1px solid var(--line)}}
+  .cbn .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--ink-soft)}
+  .cbn .v{font-family:var(--display);font-weight:600;font-size:40px;line-height:1;letter-spacing:-.02em;margin-top:8px}
+  .cbn.accent .v{color:var(--accent)}
+  .cbn .v span{font-size:18px;font-weight:500}
+  .cbn .s{font-size:12px;color:var(--ink-faint);margin-top:5px}
+  .cite-missing{font-size:13px;color:var(--ink-faint);font-style:italic;padding:18px 0;line-height:1.5}
+
+  #loading{padding:80px 0;text-align:center;font-family:var(--mono);font-size:13px;color:var(--ink-faint);letter-spacing:.05em}
+
+  footer{border-top:2px solid var(--ink);padding:26px 0 60px;margin-top:40px}
+  footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:baseline}
+  footer p{font-size:12.5px;color:var(--ink-faint);font-family:var(--mono);letter-spacing:.03em}
+  footer a{color:var(--accent);text-decoration:none}
+  .cite{font-size:12px;color:var(--ink-faint);max-width:70ch;line-height:1.5;margin-top:6px}
+  .cite a{color:var(--accent);text-decoration:none}
+
+  /* ======================================================================
+     APP MODE (activated with ?app=1, used inside the wired-paper iframe).
+     The whole UI fills the iframe exactly: compact header + controls + tabs
+     up top, then the active tab's charts divide the remaining height evenly.
+     No blank space, no page scroll, no overlap.
+  ====================================================================== */
+  /* JS sets --appH to the real iframe height; the app is exactly that tall so
+     it fills the frame (no void) and the flex children divide a known height
+     instead of collapsing to nothing. */
+  html.app{margin:0}
+  body.app{margin:0;height:var(--appH,100vh);overflow:hidden;display:flex;flex-direction:column}
+  body.app .wrap{max-width:none;padding:0 14px}
+
+  /* slim one-line header */
+  body.app header.mast{padding:8px 0 6px;flex:0 0 auto}
+  body.app header.mast .standfirst{display:none}
+  body.app h1.title{font-size:18px;margin:0;max-width:none}
+  body.app .eyebrow{font-size:10px;letter-spacing:.2em}
+  body.app .eyebrow::after{display:none}
+  body.app header.mast .wrap{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+
+  body.app .controls{position:static;flex:0 0 auto;margin:6px 0 0;padding:8px 10px;gap:6px 10px;box-shadow:none}
+  body.app .controls .ctrl label{font-size:8px;margin-bottom:2px}
+  body.app .controls .ctrl select{font-size:11.5px;padding:3px 5px}
+  body.app .controls .btn{padding:5px 10px;font-size:10px}
+  body.app .controls .status{display:none}
+  body.app .tabs{flex:0 0 auto;margin:6px 0 0}
+  body.app .tab{padding:7px 12px;font-size:12.5px}
+
+  /* chart area = all leftover height */
+  body.app main{flex:1 1 auto;min-height:0;padding:0;overflow:hidden}
+  body.app main>.wrap{height:100%;min-height:0;display:flex;flex-direction:column;padding-top:8px;padding-bottom:8px}
+  body.app .tabpanel{height:100%;min-height:0}
+  body.app .tabpanel.on{display:flex;flex-direction:column;gap:8px;min-height:0;height:100%}
+
+  /* panels fill and divide height; captions hidden */
+  body.app .panel{margin:0;padding:8px 10px;min-height:0;display:flex;flex-direction:column;flex:1 1 0}
+  body.app .panel .cap{display:none}
+  body.app .panel .ph{margin-bottom:4px;flex:0 0 auto}
+  body.app .panel h3{font-size:12.5px}
+  /* plot fills its flex cell; force Plotly's generated root to fill it too */
+  body.app .plot,body.app .plot.tall,body.app .plot.map{height:auto;flex:1 1 0;min-height:0;position:relative}
+  body.app .plot>.js-plotly-plot,body.app .plot .plot-container,body.app .plot .svg-container{height:100%!important;width:100%!important}
+
+  /* two-up rows share height as equal cells */
+  body.app .grid{min-height:0;flex:1 1 0}
+  body.app .grid.two{grid-template-columns:1fr 1fr;grid-auto-rows:1fr;min-height:0}
+  body.app .citeblock{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+  body.app .citeblock .grid{flex:1 1 0;min-height:0}
+
+  /* KPI row is fixed-height; the charts below it take the rest */
+  body.app .kpis{flex:0 0 auto;gap:8px;margin-bottom:8px;grid-template-columns:repeat(4,1fr)}
+  body.app .kpi{padding:8px 12px}
+  body.app .kpi .val{font-size:22px}
+  body.app .kpi .lab{font-size:8.5px;margin-top:3px}
+  body.app .kpi .sub{display:none}
+
+  /* Overview: KPIs fixed, annual chart + the two field charts share the rest */
+  body.app #tab-overview .panel{flex:1 1 0}
+
+  /* Map: map gets the room, table is a short fixed strip */
+  body.app #tab-map .panel{flex:1 1 0}
+  body.app #tab-map .maptable{flex:0 0 auto;max-height:110px}
+
+  /* citation big-number strip stays compact */
+  body.app .citebox-nums{flex:0 0 auto;margin-bottom:6px}
+  body.app .cbn{padding:6px 10px}
+  body.app .cbn .v{font-size:22px}
+
+  body.app footer{display:none}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="eyebrow">Sebastian Rodriguez</div>
+    <h1 class="title">The biomedical <em>retraction</em> record</h1>
+    <p class="standfirst">An interactive view of retracted biomedical papers across four fields. Set the filters once and every tab responds: counts, reasons, geography, timing, and citation patterns all reflect the same selection.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="controls" id="controls" style="display:none">
+    <div class="ctrl"><label for="fSubject">Subject</label><select id="fSubject"></select></div>
+    <div class="ctrl"><label>Retraction years</label><div class="yrrow"><select id="fYearFrom"></select><span>to</span><select id="fYearTo"></select></div></div>
+    <div class="ctrl"><label for="fReason">Reason</label><select id="fReason"></select></div>
+    <div class="ctrl"><label for="fCountry">Country</label><select id="fCountry"></select></div>
+    <div class="ctrl"><label for="fAuthors">Authors</label><select id="fAuthors">
+      <option value="__all">Any number</option>
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option>
+      <option value="6-7">6&ndash;7</option><option value="8-10">8&ndash;10</option>
+      <option value="11-15">11&ndash;15</option><option value="16-20">16&ndash;20</option><option value="21-999">21+</option>
+    </select></div>
+    <div class="ctrl"><label for="fCollab">Collaboration</label><select id="fCollab">
+      <option value="__all">Any</option><option value="single">Single country</option><option value="intl">International</option>
+    </select></div>
+    <div class="ctrl"><label for="fAccess">Notice access</label><select id="fAccess">
+      <option value="__all">Any</option><option value="open">Open access</option><option value="paywalled">Paywalled</option>
+    </select></div>
+    <button class="btn" id="resetBtn">Reset</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="time">Over time</button>
+    <button class="tab" data-tab="reasons">Reasons</button>
+    <button class="tab" data-tab="map">Map</button>
+    <button class="tab" data-tab="venues">Journals &amp; countries</button>
+    <button class="tab" data-tab="citations">Citations</button>
+    <button class="tab" data-tab="impact">Citation impact</button>
+  </div>
+</div>
+
+<div class="wrap"><div id="loading">Loading the dataset&hellip;</div></div>
+
+<main id="dash">
+  <div class="wrap">
+
+    <!-- OVERVIEW -->
+    <section class="tabpanel on" id="tab-overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="panel"><div class="ph"><h3>Retractions per year</h3></div><p class="cap">Number of retracted papers by year of retraction, for the current selection.</p><div class="plot" id="pAnnual"></div></div>
+      <div class="grid two">
+        <div class="panel"><div class="ph"><h3>Retractions by field</h3></div><p class="cap">Counts across the four fields (ignores the Subject filter so all four always show).</p><div class="plot" id="pSubjectCount"></div></div>
+        <div class="panel"><div class="ph"><h3>Median time to retraction by field</h3></div><p class="cap">Median years to retraction in each field.</p><div class="plot" id="pSubjectTTR"></div></div>
+      </div>
+    </section>
+
+    <!-- OVER TIME -->
+    <section class="tabpanel" id="tab-time">
+      <div class="panel"><div class="ph"><h3>Time to retraction</h3></div><p class="cap">Years between publication and retraction.</p><div class="plot" id="pTTR"></div></div>
+      <div class="grid two">
+        <div class="panel"><div class="ph"><h3>Retractions by number of authors</h3></div><p class="cap">Papers grouped by author count (ignores the Authors filter so the full distribution shows).</p><div class="plot" id="pAuthorCount"></div></div>
+        <div class="panel"><div class="ph"><h3>Time to retraction by number of authors</h3></div><p class="cap">Median years to retraction for each author-count group.</p><div class="plot" id="pAuthorTTR"></div></div>
+      </div>
+    </section>
+
+    <!-- REASONS -->
+    <section class="tabpanel" id="tab-reasons">
+      <div class="panel"><div class="ph"><h3>Reasons for retraction</h3>
+        <div class="figextra"><span>Show</span><select id="xReasonMode"><option value="count">Counts</option><option value="pct">% of papers</option></select></div></div>
+        <p class="cap">A paper can carry several reasons; it is counted once per category. Ignores the Reason filter so all categories show.</p><div class="plot tall" id="pReasons"></div></div>
+    </section>
+
+    <!-- MAP -->
+    <section class="tabpanel" id="tab-map">
+      <div class="panel"><div class="ph"><h3>Retractions by country</h3>
+        <div class="figextra"><span>Table</span><select id="xCountryTop"><option value="15">Top 15</option><option value="30">Top 30</option><option value="999">All</option></select></div></div>
+        <p class="cap">By author affiliation; a paper with several countries counts once for each. Hover the map for counts, scroll to zoom. Ignores the Country filter.</p>
+        <div class="plot map" id="pMap"></div>
+        <div class="maptable"><table id="tCountries"><thead><tr><th>Country</th><th style="text-align:right">Retractions</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- VENUES (journals, publishers, country timing) -->
+    <section class="tabpanel" id="tab-venues">
+      <div class="grid two">
+        <div class="panel"><div class="ph"><h3>Top journals</h3></div><p class="cap">Twenty journals with the most retractions in the selection.</p><div class="plot tall" id="pJournals"></div></div>
+        <div class="panel"><div class="ph"><h3>Top publishers</h3></div><p class="cap">Fifteen publishers with the most retractions in the selection.</p><div class="plot tall" id="pPublishers"></div></div>
+      </div>
+      <div class="panel"><div class="ph"><h3>Median time to retraction by country</h3></div><p class="cap">Fastest and slowest 10 countries (at least 30 dated papers). Ignores the Country filter.</p><div class="plot tall" id="pLag"></div></div>
+    </section>
+
+    <!-- CITATIONS (scatters) -->
+    <section class="tabpanel" id="tab-citations">
+      <div class="citeblock">
+        <div class="grid two">
+          <div class="panel"><div class="ph"><h3>Citations vs time to retraction</h3>
+            <div class="figextra"><span>Range</span><select id="xCiteCap"><option value="0.97">Trim outliers</option><option value="1">Show all</option></select></div></div>
+            <p class="cap">Each point is a paper, with a smooth trend line.</p><div class="plot tall" id="pCiteScatter"></div></div>
+          <div class="panel"><div class="ph"><h3>Citation velocity vs time to retraction</h3></div><p class="cap">Velocity is citations per year since publication.</p><div class="plot tall" id="pVelocity"></div></div>
+        </div>
+      </div>
+      <div class="cite-missing citegap" style="display:none">
+        Citation data is not present in the loaded dataset. Run <span style="font-family:var(--mono)">python build_data.py data/retraction_watch.csv docs/data.json</span> (which fetches counts from iCite and OpenAlex) and redeploy to populate this tab.
+      </div>
+    </section>
+
+    <!-- IMPACT (low/high + post-retraction) -->
+    <section class="tabpanel" id="tab-impact">
+      <div class="citeblock">
+        <div class="grid two">
+          <div class="panel"><div class="ph"><h3>Time to retraction: low vs high citation</h3></div><p class="cap">Papers split at the median citation count.</p><div class="citebox-nums" id="citeBoxNums"></div><div class="plot" id="pCiteBox"></div></div>
+          <div class="panel"><div class="ph"><h3>Post-retraction citations</h3></div><p class="cap">Citations received before vs after the retraction notice. Points above the line kept being cited more after retraction.</p><div class="plot" id="pPostRetraction"></div></div>
+        </div>
+      </div>
+      <div class="cite-missing citegap" style="display:none">
+        Citation data is not present in the loaded dataset. Run <span style="font-family:var(--mono)">python build_data.py data/retraction_watch.csv docs/data.json</span> (which fetches counts from iCite and OpenAlex) and redeploy to populate this tab.
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Built from the Retraction Watch Database <span id="genDate"></span></p>
+    <p><a href="https://github.com/" target="_blank" rel="noopener">Analysis code on GitHub</a></p>
+  </div>
+  <div class="wrap"><p class="cite">The Retraction Watch Database [Internet]. New York: The Center for Scientific Integrity. 2018. ISSN: 2692-4579. Available from: <a href="http://retractiondatabase.org/" target="_blank" rel="noopener">http://retractiondatabase.org/</a></p></div>
+</footer>
+
+<script>
+/* ============================================================================
+   The Biomedical Retraction Record - tabbed interactive dashboard (Plotly)
+   Global filters cross-link every tab. Charts that break down a filter
+   dimension ignore that one filter (so they never collapse to a single bar).
+============================================================================ */
+
+/* App mode: ?app=1 (used by the wired-paper iframe) makes the dashboard fill
+   the frame with no page scroll. Plain URL stays a normal scrollable page. */
+(function(){try{var p=new URLSearchParams(location.search);
+  if(p.get('app')==='1'||p.get('embed')==='1'){document.body.classList.add('app');document.documentElement.classList.add('app');}}catch(e){}})();
+
+const C={ink:'#1a1a17',accent:'#8a2b2b',teal:'#2a6b62',gold:'#a97b26',blue:'#3a5a78',faint:'#84817a'};
+const SERIES=['#8a2b2b','#2a6b62','#a97b26','#3a5a78','#b5533f','#6d6875','#606c38','#9c6b3f','#4a7a86','#8d5b7a','#557153','#a8763e','#3f5b78'];
+const SUBJECT_ORDER=["Neuroscience","Biostatistics/Epidemiology","Radiology/Imaging","Nanotechnology"];
+const REASON_LIST=["Data and Results Issues","Investigations and Findings","Peer Review and Editorial Issues","Institutional and Policy Issues","Plagiarism and Duplication","Authorship and Ethical Concerns","Misconduct and Fraud","Image Manipulation and Fabrication","Computer-Generated Content and AI","Complaints and Objections","Procedural and Legal Issues","Withdrawal and Retraction Notices","Miscellaneous","Other / unknown"];
+const FONT={family:"Inter, sans-serif",size:12,color:'#4a4842'};
+const LAYOUT_BASE={paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:FONT,margin:{l:55,r:18,t:10,b:45},
+  xaxis:{gridcolor:'#e2e2e2',zeroline:false,linecolor:'#bbb'},yaxis:{gridcolor:'#e2e2e2',zeroline:false,linecolor:'#bbb'},
+  hoverlabel:{bgcolor:'#1a1a17',font:{family:'Inter, sans-serif',color:'#fff',size:13}},showlegend:false,dragmode:false};
+const CONFIG={displayModeBar:false,responsive:true};
+const CONFIG_MAP={displayModeBar:true,responsive:true,scrollZoom:true,modeBarButtonsToRemove:['select2d','lasso2d','toImage'],displaylogo:false};
+
+const ISO3={"United States":"USA","China":"CHN","India":"IND","Iran":"IRN","Japan":"JPN","United Kingdom":"GBR","Germany":"DEU","Italy":"ITA","South Korea":"KOR","Republic of Korea":"KOR","Korea":"KOR","France":"FRA","Canada":"CAN","Spain":"ESP","Australia":"AUS","Brazil":"BRA","Egypt":"EGY","Saudi Arabia":"SAU","Turkey":"TUR","Turkiye":"TUR","Taiwan":"TWN","Pakistan":"PAK","Russia":"RUS","Russian Federation":"RUS","Netherlands":"NLD","Switzerland":"CHE","Sweden":"SWE","Poland":"POL","Belgium":"BEL","Malaysia":"MYS","Iraq":"IRQ","Bangladesh":"BGD","Indonesia":"IDN","Thailand":"THA","Portugal":"PRT","Austria":"AUT","Greece":"GRC","Denmark":"DNK","Norway":"NOR","Finland":"FIN","Israel":"ISR","Singapore":"SGP","Mexico":"MEX","Argentina":"ARG","Chile":"CHL","Colombia":"COL","South Africa":"ZAF","Nigeria":"NGA","Kenya":"KEN","Ethiopia":"ETH","Tunisia":"TUN","Morocco":"MAR","Algeria":"DZA","Jordan":"JOR","Lebanon":"LBN","United Arab Emirates":"ARE","Qatar":"QAT","Kuwait":"KWT","Vietnam":"VNM","Viet Nam":"VNM","Philippines":"PHL","Czech Republic":"CZE","Czechia":"CZE","Romania":"ROU","Hungary":"HUN","Ukraine":"UKR","Ireland":"IRL","New Zealand":"NZL","Serbia":"SRB","Croatia":"HRV","Slovenia":"SVN","Slovakia":"SVK","Bulgaria":"BGR","Venezuela":"VEN","Bolivia":"BOL","Peru":"PER","Cuba":"CUB","Sri Lanka":"LKA","Nepal":"NPL","Oman":"OMN","Bahrain":"BHR","Yemen":"YEM","Sudan":"SDN","Ghana":"GHA","Cameroon":"CMR","Uganda":"UGA","Tanzania":"TZA","Estonia":"EST","Latvia":"LVA","Lithuania":"LTU","Cyprus":"CYP","Iceland":"ISL","Luxembourg":"LUX","Georgia":"GEO","Armenia":"ARM","Azerbaijan":"AZE","Kazakhstan":"KAZ","Uzbekistan":"UZB"};
+
+let DATA=null, minYear=1990, maxYear=2025, activeTab='overview';
+const drawn={};
+
+function median(a){if(!a.length)return null;const s=[...a].sort((x,y)=>x-y);const m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+function quantile(s,p){const i=p*(s.length-1),lo=Math.floor(i),hi=Math.ceil(i);return lo===hi?s[lo]:s[lo]+(s[hi]-s[lo])*(i-lo);}
+function countBy(rows,f){const m=new Map();for(const r of rows){for(const k of [].concat(f(r))){if(k==null||k==='')continue;m.set(k,(m.get(k)||0)+1);}}return m;}
+function topN(m,n){return [...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);}
+function L(o){return Object.assign(JSON.parse(JSON.stringify(LAYOUT_BASE)),o||{});}
+function react(id,tr,lay,cfg){const el=document.getElementById(id);if(el)Plotly.react(el,tr,lay,cfg||CONFIG);}
+
+function lowess(xs,ys,frac,steps){frac=frac||0.35;steps=steps||60;const n=xs.length;if(n<8)return null;
+  const o=[...xs.keys()].sort((a,b)=>xs[a]-xs[b]);const x=o.map(i=>xs[i]),y=o.map(i=>ys[i]);
+  const r=Math.max(2,Math.floor(frac*n)),xmin=x[0],xmax=x[n-1],gx=[],gy=[];
+  for(let s=0;s<steps;s++){const xv=xmin+(xmax-xmin)*s/(steps-1);
+    const d=x.map(xi=>Math.abs(xi-xv)).sort((a,b)=>a-b);const h=d[r-1]||1e-9;
+    let sw=0,swx=0,swy=0,swxx=0,swxy=0;
+    for(let i=0;i<n;i++){const dd=Math.abs(x[i]-xv)/h;if(dd>=1)continue;const w=Math.pow(1-dd*dd*dd,3);
+      sw+=w;swx+=w*x[i];swy+=w*y[i];swxx+=w*x[i]*x[i];swxy+=w*x[i]*y[i];}
+    const den=sw*swxx-swx*swx;let yv;
+    if(Math.abs(den)<1e-12){yv=sw?swy/sw:0;}else{const b=(sw*swxy-swx*swy)/den;yv=(swy-b*swx)/sw+b*xv;}
+    gx.push(xv);gy.push(yv);}
+  return{x:gx,y:gy};}
+
+/* ---- load ---- */
+fetch('data.json').then(r=>{if(!r.ok)throw new Error('data.json not found');return r.json();})
+  .then(d=>{DATA=d;init();})
+  .catch(e=>{document.getElementById('loading').textContent='Could not load data.json ('+e.message+').';console.error(e);});
+
+function init(){
+  document.getElementById('genDate').textContent='\u00b7 '+(DATA.generated||'');
+  const yrs=DATA.records.map(r=>r.ry).filter(y=>y!=null&&y>=1980&&y<DATA.current_year);
+  minYear=Math.min(...yrs);maxYear=Math.max(...yrs);
+
+  document.getElementById('fSubject').innerHTML='<option value="__all">All four fields</option>'+
+    SUBJECT_ORDER.filter(s=>DATA.subjects.includes(s)).map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('fReason').innerHTML='<option value="__all">Any reason</option>'+
+    REASON_LIST.map(r=>`<option value="${r}">${r}</option>`).join('');
+  const cc=countBy(DATA.records.filter(r=>r.ry!=null&&r.ry<DATA.current_year),r=>r.co);
+  const countries=[...cc.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+  document.getElementById('fCountry').innerHTML='<option value="__all">Any country</option>'+
+    countries.map(c=>`<option value="${c}">${c}</option>`).join('');
+  let yo='';for(let y=minYear;y<=maxYear;y++)yo+=`<option value="${y}">${y}</option>`;
+  document.getElementById('fYearFrom').innerHTML=yo;document.getElementById('fYearTo').innerHTML=yo;
+  document.getElementById('fYearFrom').value=minYear;document.getElementById('fYearTo').value=maxYear;
+
+  if(!DATA.has_citations){
+    document.querySelectorAll('.citeblock').forEach(el=>el.style.display='none');
+    document.querySelectorAll('.citegap').forEach(el=>el.style.display='block');
+  }
+
+  // control events -> refilter + redraw current tab (others redraw when shown)
+  ['fSubject','fYearFrom','fYearTo','fReason','fCountry','fAuthors','fCollab','fAccess'].forEach(id=>
+    document.getElementById(id).addEventListener('change',onFilter));
+  document.getElementById('resetBtn').addEventListener('click',()=>{
+    document.getElementById('fSubject').value='__all';document.getElementById('fReason').value='__all';
+    document.getElementById('fCountry').value='__all';document.getElementById('fAuthors').value='__all';
+    document.getElementById('fCollab').value='__all';document.getElementById('fAccess').value='__all';
+    document.getElementById('fYearFrom').value=minYear;document.getElementById('fYearTo').value=maxYear;
+    onFilter();
+  });
+  // per-figure extras
+  document.getElementById('xReasonMode').addEventListener('change',()=>drawReasons());
+  document.getElementById('xCountryTop').addEventListener('change',()=>drawGeographyTable());
+  document.getElementById('xCiteCap').addEventListener('change',()=>drawCiteScatter());
+
+  // tabs
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('controls').style.display='flex';
+  document.getElementById('tabs').style.display='flex';
+  document.getElementById('dash').classList.add('on');
+
+  // App mode: pin the body to the real iframe height so it fills the frame
+  // exactly (no void) and flex children get a known height to divide.
+  const isApp=document.body.classList.contains('app');
+  function fitApp(){ if(isApp) document.body.style.setProperty('--appH', window.innerHeight+'px'); }
+  fitApp();
+
+  // Refit on any resize of the window/iframe.
+  let rt;
+  window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{fitApp();resizeTab(activeTab);},120);});
+
+  drawTab('overview');
+  // a couple of delayed fits catch the iframe settling its height after load
+  if(isApp){ setTimeout(()=>{fitApp();resizeTab(activeTab);},150); setTimeout(()=>{fitApp();resizeTab(activeTab);},400); }
+}
+
+function readFilters(){
+  return {
+    subject:document.getElementById('fSubject').value,
+    yf:+document.getElementById('fYearFrom').value, yt:+document.getElementById('fYearTo').value,
+    reason:document.getElementById('fReason').value, country:document.getElementById('fCountry').value,
+    authors:document.getElementById('fAuthors').value, collab:document.getElementById('fCollab').value,
+    access:document.getElementById('fAccess').value
+  };
+}
+function inBucket(ac,b){ if(ac==null)return false; const [lo,hi]=b.split('-').map(Number); return hi?(ac>=lo&&ac<=hi):(ac===lo); }
+function computeView(except){
+  except=except||[];const f=readFilters();
+  return DATA.records.filter(r=>{
+    if(r.ry==null||r.ry>=DATA.current_year)return false;
+    if(!except.includes('year')&&(r.ry<f.yf||r.ry>f.yt))return false;
+    if(!except.includes('subject')&&f.subject!=='__all'&&r.sub!==f.subject)return false;
+    if(!except.includes('reason')&&f.reason!=='__all'&&!(r.rs||[]).includes(f.reason))return false;
+    if(!except.includes('country')&&f.country!=='__all'&&!(r.co||[]).includes(f.country))return false;
+    if(!except.includes('author')&&f.authors!=='__all'&&!inBucket(r.ac,f.authors))return false;
+    if(!except.includes('collab')&&f.collab!=='__all'){const n=new Set(r.co||[]).size;if(n===0)return false;const intl=n>1;if(f.collab==='intl'&&!intl)return false;if(f.collab==='single'&&intl)return false;}
+    if(!except.includes('access')&&f.access!=='__all'){if(f.access==='open'&&r.pw!==false)return false;if(f.access==='paywalled'&&r.pw!==true)return false;}
+    return true;
+  });
+}
+
+function onFilter(){ updateStatus(); drawn[activeTab]=false; drawTab(activeTab); }
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('on',p.id==='tab-'+tab));
+  drawTab(tab);
+}
+function updateStatus(){
+  const n=computeView().length;
+  document.getElementById('status').innerHTML='<b>'+n.toLocaleString()+'</b> papers selected \u00b7 '+(DATA.generated||'');
+}
+
+function drawTab(tab){
+  updateStatus();
+  if(tab==='overview'){ drawKPIs(); drawAnnual(); drawSubjectCount(); drawSubjectTTR(); }
+  else if(tab==='time'){ drawTTR(); drawAuthorCount(); drawAuthorTTR(); }
+  else if(tab==='reasons'){ drawReasons(); }
+  else if(tab==='map'){ drawMap(); drawGeographyTable(); }
+  else if(tab==='venues'){ drawJournals(); drawPublishers(); drawLag(); }
+  else if(tab==='citations' && DATA.has_citations){ drawCiteScatter(); drawVelocity(); }
+  else if(tab==='impact' && DATA.has_citations){ drawCiteBox(); drawPostRetraction(); }
+  drawn[tab]=true;
+  resizeTab(tab);
+}
+
+// Force every plot in a tab to the exact pixel size of its (flex-computed)
+// container. We measure the rendered box and tell Plotly explicitly, rather
+// than relying on Plotly's own measurement, which misreads collapsing flex
+// boxes. Several delayed passes catch the iframe/flex settling after load.
+function resizeTab(tab){
+  const doResize=()=>{
+    document.querySelectorAll('#tab-'+tab+' .plot').forEach(el=>{
+      if(!el||!el.data)return;
+      const w=Math.max(120,Math.floor(el.clientWidth));
+      const h=Math.max(120,Math.floor(el.clientHeight));
+      try{ Plotly.relayout(el,{width:w,height:h}); }catch(e){}
+    });
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(doResize));
+  setTimeout(doResize,80);
+  setTimeout(doResize,250);
+  setTimeout(doResize,600);
+}
+
+/* ---- OVERVIEW ---- */
+function drawKPIs(){
+  const V=computeView();
+  const ttrs=V.map(r=>r.ttr).filter(v=>v!=null);
+  const kpis=[
+    {v:V.length.toLocaleString(),l:'Retracted papers',s:'in current selection'},
+    {v:median(ttrs)!=null?median(ttrs).toFixed(1)+' yr':'n/a',l:'Median time to retraction',s:ttrs.length.toLocaleString()+' with dates'},
+    {v:new Set(V.map(r=>r.jr).filter(Boolean)).size.toLocaleString(),l:'Journals',s:'represented'},
+    {v:new Set(V.flatMap(r=>r.co)).size.toLocaleString(),l:'Countries',s:'by affiliation'}
+  ];
+  document.getElementById('kpis').innerHTML=kpis.map(k=>`<div class="kpi"><div class="val">${k.v}</div><div class="lab">${k.l}</div><div class="sub">${k.s}</div></div>`).join('');
+}
+function drawAnnual(){
+  const m=countBy(computeView(),r=>r.ry);const years=[...m.keys()].sort((a,b)=>a-b);
+  react('pAnnual',[{x:years,y:years.map(y=>m.get(y)),type:'scatter',mode:'lines+markers',fill:'tozeroy',fillcolor:'rgba(138,43,43,0.08)',line:{color:C.accent,width:2.5},marker:{size:4,color:C.accent},hovertemplate:'%{x}: %{y} retractions<extra></extra>'}],
+    L({xaxis:{title:'Year of retraction',gridcolor:'#e2e2e2'},yaxis:{title:'Retractions',gridcolor:'#e2e2e2'}}));
+}
+function drawSubjectCount(){
+  const V=computeView(['subject']);const subs=SUBJECT_ORDER.filter(s=>DATA.subjects.includes(s));
+  react('pSubjectCount',[{x:subs,y:subs.map(s=>V.filter(r=>r.sub===s).length),type:'bar',marker:{color:SERIES.slice(0,subs.length)},hovertemplate:'%{x}: %{y}<extra></extra>'}],
+    L({xaxis:{automargin:true,tickangle:-15},yaxis:{title:'Retractions'}}));
+}
+function drawSubjectTTR(){
+  const V=computeView(['subject']);const subs=SUBJECT_ORDER.filter(s=>DATA.subjects.includes(s));
+  react('pSubjectTTR',[{x:subs,y:subs.map(s=>median(V.filter(r=>r.sub===s).map(r=>r.ttr).filter(v=>v!=null))),type:'bar',marker:{color:C.teal},hovertemplate:'%{x}: median %{y:.1f} yr<extra></extra>'}],
+    L({xaxis:{automargin:true,tickangle:-15},yaxis:{title:'Median years to retraction'}}));
+}
+
+/* ---- OVER TIME ---- */
+function drawTTR(){
+  const vals=computeView().map(r=>r.ttr).filter(v=>v!=null);const med=median(vals);
+  react('pTTR',[{x:vals,type:'histogram',xbins:{start:0,end:30,size:1},marker:{color:C.teal},hovertemplate:'%{x} yr: %{y} papers<extra></extra>'}],
+    L({xaxis:{title:'Years to retraction',range:[0,30]},yaxis:{title:'Papers'},
+       shapes:med!=null?[{type:'line',x0:med,x1:med,y0:0,y1:1,yref:'paper',line:{color:C.accent,width:2,dash:'dash'}}]:[],
+       annotations:med!=null?[{x:med,y:1,yref:'paper',text:'median '+med.toFixed(1)+' yr',showarrow:false,xanchor:'left',yanchor:'top',font:{family:'JetBrains Mono, monospace',size:11,color:C.accent},xshift:5}]:[]}));
+}
+const AG=[["1",1,1],["2",2,2],["3",3,3],["4",4,4],["5",5,5],["6-7",6,7],["8-10",8,10],["11-15",11,15],["16-20",16,20],["21+",21,999]];
+function authBuckets(V){return AG.map(([lab,lo,hi])=>{const s=V.filter(r=>r.ac!=null&&r.ac>=lo&&r.ac<=hi);return{lab,count:s.length,med:median(s.map(r=>r.ttr).filter(v=>v!=null))};});}
+function drawAuthorCount(){
+  const b=authBuckets(computeView(['author']));
+  react('pAuthorCount',[{x:b.map(g=>g.lab),y:b.map(g=>g.count),type:'bar',marker:{color:C.blue},hovertemplate:'%{x} authors: %{y}<extra></extra>'}],
+    L({xaxis:{title:'Number of authors',type:'category'},yaxis:{title:'Retractions'}}));
+}
+function drawAuthorTTR(){
+  const b=authBuckets(computeView(['author']));
+  react('pAuthorTTR',[{x:b.map(g=>g.lab),y:b.map(g=>g.med),type:'scatter',mode:'lines+markers',line:{color:C.accent,width:2.5},marker:{size:7,color:C.accent,symbol:'diamond'},hovertemplate:'%{x} authors: median %{y:.1f} yr<extra></extra>'}],
+    L({xaxis:{title:'Number of authors',type:'category'},yaxis:{title:'Median years to retraction'}}));
+}
+
+/* ---- REASONS ---- */
+function drawReasons(){
+  const V=computeView(['reason']);const total=V.length||1;
+  const mode=document.getElementById('xReasonMode').value;
+  const items=[...countBy(V,r=>r.rs).entries()].sort((a,b)=>a[1]-b[1]);
+  const vals=items.map(i=>mode==='pct'?(i[1]/total*100):i[1]);
+  react('pReasons',[{x:vals,y:items.map(i=>i[0]),type:'bar',orientation:'h',marker:{color:items.map((_,i)=>SERIES[(items.length-1-i)%SERIES.length])},
+    hovertemplate:mode==='pct'?'%{y}: %{x:.1f}%<extra></extra>':'%{y}: %{x}<extra></extra>'}],
+    L({margin:{l:240,r:18,t:10,b:40},xaxis:{title:mode==='pct'?'% of selected papers':'Retractions'},yaxis:{automargin:true}}));
+}
+
+/* ---- GEOGRAPHY ---- */
+function drawMap(){
+  const m=countBy(computeView(['country']),r=>r.co);
+  const rows=[...m.entries()].map(([name,count])=>({name,count,iso:ISO3[name]||null})).filter(r=>r.iso);
+  react('pMap',[{type:'choropleth',locations:rows.map(r=>r.iso),z:rows.map(r=>r.count),text:rows.map(r=>r.name),
+    colorscale:[[0,'#f0ebe0'],[0.15,'#c9d6d2'],[0.4,'#7fae9f'],[0.7,'#3a7d68'],[1,'#1c4a3c']],autocolorscale:false,
+    marker:{line:{color:'#bbb',width:0.4}},colorbar:{title:{text:'Retractions',font:{size:11}},thickness:12,len:0.7,x:1,tickfont:{size:10}},
+    hovertemplate:'<b>%{text}</b><br>%{z} retractions<extra></extra>',zmin:0}],
+    {paper_bgcolor:'rgba(0,0,0,0)',font:FONT,margin:{l:0,r:0,t:0,b:0},
+     geo:{showframe:false,showcoastlines:true,coastlinecolor:'#cfc9ba',showland:true,landcolor:'#faf8f2',bgcolor:'rgba(0,0,0,0)',projection:{type:'natural earth'}}},CONFIG_MAP);
+}
+function drawGeographyTable(){
+  const m=countBy(computeView(['country']),r=>r.co);
+  const top=+document.getElementById('xCountryTop').value;
+  const rows=[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,top);
+  document.querySelector('#tCountries tbody').innerHTML=rows.map(([c,n])=>`<tr><td>${c}</td><td class="num">${n.toLocaleString()}</td></tr>`).join('');
+}
+function drawJournals(){
+  const items=topN(countBy(computeView(),r=>r.jr),20).reverse();
+  react('pJournals',[{x:items.map(i=>i[1]),y:items.map(i=>i[0]),type:'bar',orientation:'h',marker:{color:C.gold},hovertemplate:'%{y}: %{x}<extra></extra>'}],
+    L({margin:{l:230,r:18,t:10,b:40},xaxis:{title:'Retractions'},yaxis:{automargin:true,tickfont:{size:10}}}));
+}
+function drawPublishers(){
+  const items=topN(countBy(computeView(),r=>r.pb),15).reverse();
+  react('pPublishers',[{x:items.map(i=>i[1]),y:items.map(i=>i[0]),type:'bar',orientation:'h',marker:{color:C.blue},hovertemplate:'%{y}: %{x}<extra></extra>'}],
+    L({margin:{l:230,r:18,t:10,b:40},xaxis:{title:'Retractions'},yaxis:{automargin:true,tickfont:{size:10}}}));
+}
+function drawLag(){
+  const V=computeView(['country']);const by=new Map();
+  for(const r of V){if(r.ttr==null||!r.co.length)continue;const pc=r.co[0];if(!by.has(pc))by.set(pc,[]);by.get(pc).push(r.ttr);}
+  let rows=[];for(const [c,v] of by){if(v.length>=30)rows.push({c,med:median(v),n:v.length});}
+  rows.sort((a,b)=>a.med-b.med);
+  const fast=rows.slice(0,10),slow=rows.slice(-10).filter(r=>!fast.includes(r));
+  const yorder=[...slow].reverse().concat([...fast].reverse()).map(r=>r.c);
+  react('pLag',[
+    {x:fast.map(r=>r.med),y:fast.map(r=>r.c),type:'bar',orientation:'h',name:'Fastest 10',marker:{color:C.teal},customdata:fast.map(r=>r.n),hovertemplate:'%{y}: median %{x:.1f} yr (n=%{customdata})<extra></extra>'},
+    {x:slow.map(r=>r.med),y:slow.map(r=>r.c),type:'bar',orientation:'h',name:'Slowest 10',marker:{color:C.accent},customdata:slow.map(r=>r.n),hovertemplate:'%{y}: median %{x:.1f} yr (n=%{customdata})<extra></extra>'}
+  ],L({margin:{l:150,r:18,t:10,b:45},showlegend:true,legend:{orientation:'h',y:1.08,x:0,font:{size:11}},barmode:'overlay',
+      xaxis:{title:'Median years to retraction'},yaxis:{automargin:true,tickfont:{size:11},categoryorder:'array',categoryarray:yorder}}));
+}
+
+/* ---- CITATIONS ---- */
+function drawCiteScatter(){
+  const V=computeView();const pts=V.filter(r=>r.ct!=null&&r.ttr!=null&&r.ttr>=0&&r.ttr<=25);
+  if(!pts.length){react('pCiteScatter',[],L());return;}
+  const capMode=+document.getElementById('xCiteCap').value;
+  const cap=capMode<1?quantile(pts.map(p=>p.ct).sort((a,b)=>a-b),capMode):Infinity;
+  const f=pts.filter(p=>p.ct<=cap);
+  const tr=[{x:f.map(p=>p.ct),y:f.map(p=>p.ttr),type:'scattergl',mode:'markers',marker:{size:5,color:C.ink,opacity:0.22},hovertemplate:'%{x} citations \u00b7 %{y:.1f} yr<extra></extra>'}];
+  const lo=lowess(f.map(p=>p.ct),f.map(p=>p.ttr));if(lo)tr.push({x:lo.x,y:lo.y,type:'scatter',mode:'lines',line:{color:C.accent,width:3},hoverinfo:'skip'});
+  react('pCiteScatter',tr,L({xaxis:{title:'Citation count'},yaxis:{title:'Years to retraction'}}));
+}
+function drawVelocity(){
+  const cy=DATA.current_year;const pts=computeView().filter(r=>r.ct!=null&&r.ttr!=null&&r.py!=null&&r.ttr>=0&&r.ttr<=25&&(cy-r.py)>0.5).map(r=>({v:r.ct/(cy-r.py),t:r.ttr}));
+  if(!pts.length){react('pVelocity',[],L());return;}
+  const cap=quantile(pts.map(p=>p.v).sort((a,b)=>a-b),0.97);const f=pts.filter(p=>p.v<=cap);
+  const tr=[{x:f.map(p=>p.v),y:f.map(p=>p.t),type:'scattergl',mode:'markers',marker:{size:5,color:C.teal,opacity:0.22},hovertemplate:'%{x:.1f} cites/yr \u00b7 %{y:.1f} yr<extra></extra>'}];
+  const lo=lowess(f.map(p=>p.v),f.map(p=>p.t));if(lo)tr.push({x:lo.x,y:lo.y,type:'scatter',mode:'lines',line:{color:C.accent,width:3},hoverinfo:'skip'});
+  react('pVelocity',tr,L({xaxis:{title:'Citations per year since publication'},yaxis:{title:'Years to retraction'}}));
+}
+function drawCiteBox(){
+  const wc=computeView().filter(r=>r.ct!=null&&r.ttr!=null&&r.ttr>=0&&r.ttr<=30);
+  const nums=document.getElementById('citeBoxNums');
+  if(wc.length<20){react('pCiteBox',[],L());nums.innerHTML='';return;}
+  const med=median(wc.map(r=>r.ct));
+  const lo=wc.filter(r=>r.ct<=med).map(r=>r.ttr),hi=wc.filter(r=>r.ct>med).map(r=>r.ttr);
+  nums.innerHTML=`<div class="cbn"><div class="l">Low citation</div><div class="v">${median(lo).toFixed(1)} <span>yr</span></div><div class="s">\u2264 ${med} citations \u00b7 n = ${lo.length.toLocaleString()}</div></div>`+
+    `<div class="cbn accent"><div class="l">High citation</div><div class="v">${median(hi).toFixed(1)} <span>yr</span></div><div class="s">&gt; ${med} citations \u00b7 n = ${hi.length.toLocaleString()}</div></div>`;
+  react('pCiteBox',[{y:lo,type:'box',name:'Low',marker:{color:C.blue},boxmean:true},{y:hi,type:'box',name:'High',marker:{color:C.accent},boxmean:true}],
+    L({yaxis:{title:'Years to retraction'},xaxis:{automargin:true}}));
+}
+function drawPostRetraction(){
+  const pts=computeView().filter(r=>r.pre!=null&&r.post!=null&&(r.pre>0||r.post>0));
+  if(!pts.length){react('pPostRetraction',[{type:'scatter',x:[],y:[]}],L({annotations:[{text:'No per-year citation data available',showarrow:false,x:0.5,y:0.5,xref:'paper',yref:'paper',font:{color:C.faint}}]}));return;}
+  const mx=Math.max(...pts.map(p=>Math.max(p.pre,p.post)))*1.05;
+  const above=pts.filter(p=>p.post>p.pre),below=pts.filter(p=>p.post<=p.pre);
+  react('pPostRetraction',[
+    {x:below.map(p=>p.pre),y:below.map(p=>p.post),type:'scattergl',mode:'markers',name:'rate dropped',marker:{size:6,color:C.teal,opacity:0.65},hovertemplate:'pre %{x} \u00b7 post %{y}<extra></extra>'},
+    {x:above.map(p=>p.pre),y:above.map(p=>p.post),type:'scattergl',mode:'markers',name:'still cited more',marker:{size:6,color:C.accent,opacity:0.8},hovertemplate:'pre %{x} \u00b7 post %{y}<extra></extra>'},
+    {x:[0,mx],y:[0,mx],type:'scatter',mode:'lines',line:{color:'#888',width:1.2,dash:'dash'},hoverinfo:'skip',showlegend:false}
+  ],L({showlegend:true,legend:{font:{size:10},x:0.02,y:0.98,bgcolor:'rgba(251,249,243,0.8)'},xaxis:{title:'Citations before retraction'},yaxis:{title:'Citations after retraction'}}));
+}
+</script>
+</body>
+</html>
